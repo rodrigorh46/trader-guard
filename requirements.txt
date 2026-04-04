@@ -1,3 +1,4 @@
 streamlit
 python-binance
 pandas
+pyttsx3
