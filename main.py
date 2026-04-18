@@ -5,20 +5,19 @@ import time, hashlib, hmac, requests
 # --- CONFIGURAÇÃO ---
 st.set_page_config(page_title="Trader Guard", layout="wide")
 
-# --- CSS: LOGOTIPO E BOTÕES ---
+# --- ESTILO VISUAL ---
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
-    .logo-container { text-align: center; padding: 15px; border: 1px solid #00d4ff; border-radius: 10px; margin-bottom: 20px; }
-    .logo-img { width: 70px; filter: drop-shadow(0px 0px 10px #00d4ff); }
-    .logo-text { color: #00d4ff; font-family: 'Inter', sans-serif; font-size: 20px; font-weight: bold; }
-    div.stButton > button { width: 100% !important; height: 50px !important; font-weight: bold !important; }
-    .stButton button:has(div p:contains("COMPRAR")) { background-color: #00c853 !important; }
-    .stButton button:has(div p:contains("VENDEDOR")) { background-color: #ff3d00 !important; }
+    .logo-container { text-align: center; padding: 20px; border: 2px solid #00d4ff; border-radius: 15px; margin-bottom: 25px; }
+    .logo-text { color: #00d4ff; font-size: 24px; font-weight: bold; }
+    div.stButton > button { width: 100% !important; height: 50px !important; font-weight: bold !important; border-radius: 10px !important; }
+    .stButton button:has(div p:contains("COMPRAR")) { background-color: #00c853 !important; color: white !important; }
+    .stButton button:has(div p:contains("VENDEDOR")) { background-color: #ff3d00 !important; color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- CONEXÃO BINANCE ---
+# --- CONEXÃO COM A BINANCE (CORRIGIDA) ---
 def get_balance():
     try:
         api = st.secrets["binance"]["api_key"]
@@ -26,22 +25,25 @@ def get_balance():
         ts = int(time.time() * 1000)
         query = f"timestamp={ts}"
         sig = hmac.new(sec.encode('utf-8'), query.encode('utf-8'), hashlib.sha256).hexdigest()
-        res = requests.get(f"https://fapi.binance.com/fapi/v2/balance?{query}&signature={sig}", headers={'X-MBX-APIKEY': api}).json()
-        return float(next(i['balance'] for i in res if i['asset'] == 'USDT'))
+        url = f"https://fapi.binance.com/fapi/v2/balance?{query}&signature={sig}"
+        res = requests.get(url, headers={'X-MBX-APIKEY': api}, timeout=10).json()
+        for item in res:
+            if item['asset'] == 'USDT': return float(item['balance'])
     except: return 0.0
+    return 0.0
 
 saldo = get_balance()
 
-# --- BARRA LATERAL ---
+# --- MENU LATERAL ---
 with st.sidebar:
-    st.markdown('<div class="logo-container"><img src="https://cdn-icons-png.flaticon.com/512/2092/2092141.png" class="logo-img"><div class="logo-text">TRADER GUARD</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="logo-container"><div class="logo-text">🛡️ TRADER GUARD</div></div>', unsafe_allow_html=True)
     menu = st.radio("Navegação", ["🔴 Terminal", "💰 Depósito PIX", "💸 Saque PIX", "👤 Conta"])
     st.divider()
-    # AGORA COM ADA E DOGE INCLUÍDAS
-    moeda = st.selectbox("Escolha a Moeda:", ["BTCUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT"])
-    
-    if saldo > 0: st.success("✅ CONECTADO")
-    else: st.error("⚠️ ATIVE 'FUTUROS' NA API BINANCE")
+    # MOEDAS ADICIONADAS: ADA E DOGE
+    moeda = st.selectbox("Moeda para Operar:", ["BTCUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT"])
+    st.divider()
+    if saldo > 0: st.success(f"✅ CONECTADO: $ {saldo:,.2f}")
+    else: st.error("⚠️ ERRO: ATIVE 'FUTUROS' NA BINANCE")
 
 # --- TELAS ---
 if menu == "🔴 Terminal":
@@ -49,18 +51,17 @@ if menu == "🔴 Terminal":
     with c1:
         components.html(f'<div style="height:620px;"><div id="tv"></div><script src="https://s3.tradingview.com/tv.js"></script><script>new TradingView.widget({{"width": "100%", "height": 620, "symbol": "BINANCE:{moeda}", "interval": "1", "theme": "dark", "style": "1", "locale": "br", "container_id": "tv"}});</script></div>', height=630)
     with c2:
-        st.subheader("Execução")
-        st.metric("Saldo USDT", f"$ {saldo:,.2f}")
-        margem = st.number_input("Margem (R$)", value=100.0)
-        alavanca = st.slider("Alavancagem", 1, 125, 10)
-        if st.button("🚀 COMPRAR (LONG)"): st.success("Enviado!")
-        if st.button("📉 VENDEDOR (CURTO)"): st.error("Enviado!")
+        st.subheader("Painel de Ordem")
+        st.metric("Saldo Atual (USDT)", f"$ {saldo:,.2f}")
+        st.number_input("Margem (R$)", value=100.0)
+        st.slider("Alavancagem", 1, 125, 20)
+        st.button("🚀 COMPRAR (LONG)")
+        st.button("📉 VENDEDOR (CURTO)")
 
 elif menu == "💰 Depósito PIX":
-    st.title("Depósito Instantâneo")
-    valor = st.number_input("Valor (R$)", min_value=10.0, value=50.0)
-    if st.button("Gerar QR Code"):
-        # Simulador de QR Code
-        st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=00020126360014br.gov.bcb.pix0114suachavepix{valor}")
+    st.title("Depósito via PIX")
+    valor_pix = st.number_input("Valor para Depósito (R$)", min_value=10.0, value=50.0)
+    if st.button("Gerar Código PIX"):
+        st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=PIX_CHAVE_EXEMPLO_{valor_pix}")
         st.code("suachavepix@aqui.com", language="text")
-        st.info("Após pagar, o saldo cai em até 5 minutos.")
+        st.info("O saldo será creditado após a confirmação bancária.")
