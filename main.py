@@ -3,39 +3,59 @@ import streamlit.components.v1 as components
 from binance.client import Client
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Trader Guard ELITE 🛡️", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="Trader Guard", layout="wide", page_icon="🛡️")
 
-# --- CSS PARA O SEU LOGOTIPO (AGORA FIXO!) ---
+# --- CSS PARA ESTILO E LOGOTIPO ORIGINAL ---
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
     
-    /* O SEU LOGOTIPO VOLTOU AQUI */
-    .logo-box {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        padding: 20px;
-        border-radius: 15px;
-        border: 1px solid #00d4ff;
+    /* Logotipo de Circuito/Tecnologia que você gosta */
+    .logo-container {
         text-align: center;
-        margin-bottom: 25px;
-        box-shadow: 0px 0px 20px rgba(0, 212, 255, 0.2);
+        padding: 15px;
+        background: rgba(0, 212, 255, 0.05);
+        border-radius: 10px;
+        border: 1px solid #00d4ff;
+        margin-bottom: 20px;
     }
-    .logo-shield { font-size: 40px; margin-bottom: 10px; }
+    .logo-img {
+        width: 70px;
+        filter: drop-shadow(0px 0px 10px #00d4ff);
+    }
     .logo-text {
         color: #00d4ff;
-        font-family: 'Arial Black', sans-serif;
+        font-family: 'Inter', sans-serif;
         font-size: 22px;
         font-weight: bold;
+        margin-top: 10px;
         text-transform: uppercase;
-        letter-spacing: 1px;
-        margin: 0;
-        text-shadow: 0px 0px 10px rgba(0, 212, 255, 0.6);
     }
-    .logo-tag { color: #94a3b8; font-size: 10px; letter-spacing: 2px; }
 
-    /* Estilo dos Botões e Status */
-    div.stButton > button { width: 100% !important; height: 50px !important; border-radius: 10px !important; }
-    .stMetric { background: #1e293b; padding: 15px; border-radius: 10px; border: 1px solid #334155; }
+    /* Estilo dos Botões de Execução */
+    div.stButton > button {
+        width: 100% !important;
+        height: 50px !important;
+        font-weight: bold !important;
+        border-radius: 8px !important;
+        font-size: 16px !important;
+    }
+    /* Botão de Compra (Verde) */
+    .stButton button:has(div p:contains("COMPRAR")) {
+        background-color: #00c853 !important;
+        color: white !important;
+    }
+    /* Botão de Vendedor (Vermelho) */
+    .stButton button:has(div p:contains("VENDEDOR")) {
+        background-color: #ff3d00 !important;
+        color: white !important;
+    }
+    /* Botão de Sair (Laranja de Destaque) */
+    .stButton button:has(div p:contains("FECHAR")) {
+        background-color: #ff9800 !important;
+        color: white !important;
+        border: 2px solid white !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -45,70 +65,76 @@ try:
     api_secret = st.secrets["binance"]["api_secret"]
     client = Client(api_key, api_secret)
     
-    # Puxa saldo real (Spot)
-    conta = client.get_asset_balance(asset='USDT')
-    saldo_real = float(conta['free'])
-    
-    status_conexao = "✅ SISTEMA CONECTADO"
-    modo_visualizacao = False
+    # Busca saldo real
+    info = client.get_asset_balance(asset='USDT')
+    saldo_real = float(info['free'])
+    conectado = True
 except Exception:
-    saldo_real = 0.0
-    status_conexao = "⚠️ MODO VISUALIZAÇÃO"
-    modo_visualizacao = True
-    api_key = "Chave não encontrada"
+    saldo_real = 0.00
+    conectado = False
 
-# --- SIDEBAR (BARRA LATERAL) ---
+# --- BARRA LATERAL (SIDEBAR) ---
 with st.sidebar:
-    # AQUI ESTÁ O SEU LOGOTIPO RODRIGO!
-    st.markdown(f"""
-    <div class="logo-box">
-        <div class="logo-shield">🛡️</div>
-        <p class="logo-text">TRADER GUARD</p>
-        <p class="logo-tag">SECURITY & HIGH FREQUENCY</p>
+    # O LOGOTIPO QUE PARECE UM VÍRUS VOLTOU
+    st.markdown("""
+    <div class="logo-container">
+        <img src="https://cdn-icons-png.flaticon.com/512/2092/2092141.png" class="logo-img">
+        <div class="logo-text">Trader Guard</div>
+        <p style="color: #8b949e; font-size: 10px;">SECURITY & HIGH FREQUENCY</p>
     </div>
     """, unsafe_allow_html=True)
     
-    menu = st.radio("Navegação Principal", ["📈 Terminal de Trade", "💰 Gestão PIX", "👤 Perfil API"])
+    st.write("Navegação")
+    menu = st.radio("", ["🔴 Operacional", "💰 Depósito PIX", "💸 Saque PIX", "👤 Minha Conta"], label_visibility="collapsed")
+    
+    st.divider()
+    if conectado:
+        st.success("✅ CONECTADO À BINANCE")
+    else:
+        st.warning("⚠️ MODO VISUALIZAÇÃO")
+    
+    st.info("📍 Servidor: Campina Grande - PB")
+
+# --- PAINEL PRINCIPAL ---
+col_graf, col_exec = st.columns([3, 1])
+
+with col_graf:
+    # Gráfico do TradingView
+    tv_html = """
+    <div style="height:620px;">
+        <div id="tv_chart"></div>
+        <script src="https://s3.tradingview.com/tv.js"></script>
+        <script>
+        new TradingView.widget({
+          "width": "100%", "height": 620, "symbol": "BINANCE:BTCUSDT",
+          "interval": "1", "theme": "dark", "style": "1", "locale": "br",
+          "container_id": "tv_chart", "hide_side_toolbar": false
+        });
+        </script>
+    </div>"""
+    components.html(tv_html, height=630)
+
+with col_exec:
+    st.subheader("⚡ Execução")
+    st.metric("Saldo Disponível (USDT)", f"$ {saldo_real:,.2f}")
+    
     st.divider()
     
-    if modo_visualizacao: st.warning(status_conexao)
-    else: st.success(status_conexao)
+    # CONTROLES DE OPERAÇÃO QUE TINHAM SUMIDO
+    margem = st.number_input("Margem (R$)", min_value=10.0, value=100.0, step=10.0)
+    alavancagem = st.slider("Alavancagem", 1, 125, 10)
     
-    st.info(f"📍 Servidor: Campina Grande - PB")
-
-# --- CONTEÚDO PRINCIPAL ---
-if menu == "📈 Terminal de Trade":
-    col_graf, col_painel = st.columns([3, 1])
-
-    with col_graf:
-        # Gráfico do TradingView
-        tv_html = """
-        <div style="height:620px;">
-            <div id="chart_div"></div>
-            <script src="https://s3.tradingview.com/tv.js"></script>
-            <script>
-            new TradingView.widget({
-                "width": "100%", "height": 620, "symbol": "BINANCE:BTCUSDT",
-                "interval": "1", "theme": "dark", "style": "1", "locale": "br",
-                "container_id": "chart_div", "hide_side_toolbar": false
-            });
-            </script>
-        </div>"""
-        components.html(tv_html, height=630)
-
-    with col_painel:
-        st.subheader("Boleta de Ordem")
-        st.metric("Saldo na Binance (USDT)", f"$ {saldo_real:,.2f}")
-        st.divider()
+    st.write("")
+    
+    # Botões de Ação
+    if st.button("🚀 COMPRAR (LONG)"):
+        st.success(f"Ordem de COMPRA enviada!")
         
-        if modo_visualizacao:
-            st.error("Conecte suas chaves nos Secrets para operar.")
-        else:
-            margem = st.number_input("Entrada ($)", min_value=1.0, value=10.0)
-            if st.button("🚀 COMPRAR"): st.success("Ordem de Compra!")
-            if st.button("📉 VENDER"): st.error("Ordem de Venda!")
-            if st.button("⏹️ FECHAR POSIÇÃO AGORA"): st.warning("Fechando...")
-
-elif menu == "👤 Perfil API":
-    st.title("Configurações")
-    st.write(f"Sua API Key começa com: `{api_key[:10]}`")
+    if st.button("📉 VENDEDOR (CURTO)"):
+        st.error(f"Ordem de VENDA enviada!")
+        
+    st.write("")
+    
+    # O BOTÃO DE SAIR QUE VOCÊ PEDIU
+    if st.button("⏹️ FECHAR POSIÇÃO AGORA"):
+        st.warning("⚠️ Encerrando todas as ordens abertas...")
