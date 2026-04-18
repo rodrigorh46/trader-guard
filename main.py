@@ -1,5 +1,5 @@
 import streamlit as st
-import sqlite3, bcrypt, time
+import sqlite3, bcrypt, time, pandas as pd
 
 # --- BANCO DE DADOS ---
 conn = sqlite3.connect("usuarios.db")
@@ -16,6 +16,8 @@ conn.commit()
 
 # --- FUNÇÕES ---
 def cadastrar_usuario(nome, email, senha):
+    if not nome or not email or not senha:
+        return False
     senha_hash = bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt())
     try:
         c.execute("INSERT INTO usuarios (nome, email, senha_hash) VALUES (?, ?, ?)",
@@ -66,15 +68,39 @@ with st.sidebar:
 
 st.title("🛡️ Trader Guard")
 
+# --- LOGIN / CADASTRO ---
 if "usuario" not in st.session_state:
     escolha = st.radio("Selecione:", ["Login", "Cadastro"])
-    # ... (mesmo fluxo de login/cadastro)
+    if escolha == "Cadastro":
+        nome = st.text_input("Nome completo")
+        email = st.text_input("Email")
+        senha = st.text_input("Senha", type="password")
+        if st.button("Cadastrar"):
+            if cadastrar_usuario(nome, email, senha):
+                st.success("Cadastro realizado com sucesso! Faça login.")
+            else:
+                st.error("Erro: verifique os campos ou email já cadastrado.")
+    else:
+        email = st.text_input("Email")
+        senha = st.text_input("Senha", type="password")
+        if st.button("Login"):
+            user = login_usuario(email, senha)
+            if user:
+                st.session_state["usuario"] = user
+                st.success(f"Bem-vindo, {user['nome']}!")
+            else:
+                st.error("Credenciais inválidas.")
 else:
     usuario = st.session_state["usuario"]
     st.sidebar.success(f"👤 Logado como {usuario['nome']}")
-    menu = st.sidebar.radio("Navegação", ["💰 Depósito PIX", "💸 Saque PIX", "👤 Conta"])
+    menu = st.sidebar.radio("Navegação", ["🔴 Terminal", "💰 Depósito PIX", "💸 Saque PIX", "👤 Conta"])
 
-    if menu == "💰 Depósito PIX":
+    if menu == "🔴 Terminal":
+        st.subheader("📈 Gráfico de evolução do saldo")
+        dados = pd.DataFrame({"Saldo":[usuario["saldo"]]}, index=[pd.Timestamp.now()])
+        st.line_chart(dados)
+
+    elif menu == "💰 Depósito PIX":
         valor_pix = st.number_input("Valor para Depósito (R$)", min_value=10.0, value=50.0)
         if st.button("Gerar Código PIX"):
             qr_url, link = gerar_qr_pix(valor_pix)
@@ -82,7 +108,6 @@ else:
             st.code(link, language="text")
             if not API_KEY:
                 st.warning("⚠️ Modo teste: QR gerado apenas para simulação.")
-            # Atualiza saldo direto no modo teste
             novo_saldo = usuario["saldo"] + valor_pix
             atualizar_saldo(usuario["id"], novo_saldo)
             usuario["saldo"] = novo_saldo
