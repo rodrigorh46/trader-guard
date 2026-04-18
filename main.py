@@ -2,8 +2,9 @@ import streamlit as st
 import sqlite3, bcrypt, time, pandas as pd
 
 # --- BANCO DE DADOS ---
-conn = sqlite3.connect("usuarios.db")
+conn = sqlite3.connect("usuarios.db", check_same_thread=False)
 c = conn.cursor()
+
 c.execute("""CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nome TEXT,
@@ -11,6 +12,14 @@ c.execute("""CREATE TABLE IF NOT EXISTS usuarios (
     senha_hash TEXT,
     saldo REAL DEFAULT 0,
     data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)""")
+
+c.execute("""CREATE TABLE IF NOT EXISTS transacoes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER,
+    tipo TEXT,
+    valor REAL,
+    data TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )""")
 conn.commit()
 
@@ -37,6 +46,15 @@ def login_usuario(email, senha):
 def atualizar_saldo(user_id, novo_saldo):
     c.execute("UPDATE usuarios SET saldo=? WHERE id=?", (novo_saldo, user_id))
     conn.commit()
+
+def registrar_transacao(user_id, tipo, valor):
+    c.execute("INSERT INTO transacoes (usuario_id, tipo, valor) VALUES (?, ?, ?)",
+              (user_id, tipo, valor))
+    conn.commit()
+
+def historico_transacoes(user_id):
+    c.execute("SELECT tipo, valor, data FROM transacoes WHERE usuario_id=? ORDER BY data DESC", (user_id,))
+    return c.fetchall()
 
 # --- Fallback PIX ---
 API_KEY = st.secrets.get("openpix", {}).get("api_key", None)
@@ -97,8 +115,13 @@ else:
 
     if menu == "🔴 Terminal":
         st.subheader("📈 Gráfico de evolução do saldo")
-        dados = pd.DataFrame({"Saldo":[usuario["saldo"]]}, index=[pd.Timestamp.now()])
-        st.line_chart(dados)
+        transacoes = historico_transacoes(usuario["id"])
+        if transacoes:
+            df = pd.DataFrame(transacoes, columns=["Tipo", "Valor", "Data"])
+            st.line_chart(df.set_index("Data")["Valor"])
+            st.table(df)
+        else:
+            st.info("Nenhuma transação registrada ainda.")
 
     elif menu == "💰 Depósito PIX":
         valor_pix = st.number_input("Valor para Depósito (R$)", min_value=10.0, value=50.0)
@@ -110,6 +133,7 @@ else:
                 st.warning("⚠️ Modo teste: QR gerado apenas para simulação.")
             novo_saldo = usuario["saldo"] + valor_pix
             atualizar_saldo(usuario["id"], novo_saldo)
+            registrar_transacao(usuario["id"], "Depósito", valor_pix)
             usuario["saldo"] = novo_saldo
             st.success(f"Saldo atualizado: R$ {novo_saldo:.2f}")
 
@@ -121,6 +145,7 @@ else:
                 resultado = solicitar_saque(chave, valor_saque)
                 novo_saldo = usuario["saldo"] - valor_saque
                 atualizar_saldo(usuario["id"], novo_saldo)
+                registrar_transacao(usuario["id"], "Saque", valor_saque)
                 usuario["saldo"] = novo_saldo
                 st.success(f"Saque realizado. Saldo atual: R$ {novo_saldo:.2f}")
                 if not API_KEY:
