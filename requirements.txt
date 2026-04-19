@@ -1,4 +1,2 @@
+python-binance
 streamlit
-requests
-bcrypt 
-
