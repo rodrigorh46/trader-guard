@@ -9,8 +9,7 @@ c.execute("""CREATE TABLE IF NOT EXISTS usuarios (
     nome TEXT,
     email TEXT UNIQUE,
     senha_hash TEXT,
-    saldo REAL DEFAULT 0,
-    data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    saldo REAL DEFAULT 0
 )""")
 conn.commit()
 
@@ -38,33 +37,16 @@ def atualizar_saldo(user_id, novo_saldo):
     c.execute("UPDATE usuarios SET saldo=? WHERE id=?", (novo_saldo, user_id))
     conn.commit()
 
-# --- Fallback PIX ---
-API_KEY = st.secrets.get("openpix", {}).get("api_key", None)
-
+# --- PIX FAKE ---
 def gerar_qr_pix(valor):
-    if API_KEY:
-        return f"https://api.openpix.com.br/qr/{valor}", "link_real"
-    else:
-        fake_qr = f"https://fake.qr/{valor}-{int(time.time())}"
-        return fake_qr, "link_fake"
-
-def solicitar_saque(chave_pix, valor):
-    if API_KEY:
-        return {"status": "ok", "pix": {"valor": valor, "chave": chave_pix}}
-    else:
-        return {"status": "simulado", "pix": {"valor": valor, "chave": chave_pix}}
+    fake_qr = f"https://fake.qr/{valor}-{int(time.time())}"
+    return fake_qr
 
 # --- INTERFACE ---
 st.set_page_config(page_title="Trader Guard", layout="wide")
 
 with st.sidebar:
-    st.markdown(
-        '<div class="logo-container">'
-        '<img src="https://copilot.microsoft.com/th/id/BCO.be6a8e45-0b24-42a7-92da-506929719f2b.png" width="120" class="pulse-logo">'
-        '<div class="logo-text">🛡️ TRADER GUARD</div>'
-        '</div>',
-        unsafe_allow_html=True
-    )
+    st.markdown("🛡️ TRADER GUARD")
 
 st.title("🛡️ Trader Guard")
 
@@ -95,35 +77,28 @@ else:
     menu = st.sidebar.radio("Navegação", ["🔴 Terminal", "💰 Depósito PIX", "💸 Saque PIX", "👤 Conta"])
 
     if menu == "🔴 Terminal":
-        st.subheader("📈 Gráfico de evolução do saldo")
+        st.subheader("📈 Gráfico simples do saldo")
         dados = pd.DataFrame({"Saldo":[usuario["saldo"]]}, index=[pd.Timestamp.now()])
         st.line_chart(dados)
 
     elif menu == "💰 Depósito PIX":
         valor_pix = st.number_input("Valor para Depósito (R$)", min_value=10.0, value=50.0)
         if st.button("Gerar Código PIX"):
-            qr_url, link = gerar_qr_pix(valor_pix)
-            st.image(qr_url)
-            st.code(link, language="text")
-            if not API_KEY:
-                st.warning("⚠️ Modo teste: QR gerado apenas para simulação.")
+            qr_url = gerar_qr_pix(valor_pix)
+            st.code(qr_url, language="text")
             novo_saldo = usuario["saldo"] + valor_pix
             atualizar_saldo(usuario["id"], novo_saldo)
             usuario["saldo"] = novo_saldo
             st.success(f"Saldo atualizado: R$ {novo_saldo:.2f}")
 
     elif menu == "💸 Saque PIX":
-        chave = st.text_input("Informe sua chave PIX")
         valor_saque = st.number_input("Valor para Saque (R$)", min_value=10.0, value=50.0)
         if st.button("Solicitar Saque"):
             if valor_saque <= usuario["saldo"]:
-                resultado = solicitar_saque(chave, valor_saque)
                 novo_saldo = usuario["saldo"] - valor_saque
                 atualizar_saldo(usuario["id"], novo_saldo)
                 usuario["saldo"] = novo_saldo
                 st.success(f"Saque realizado. Saldo atual: R$ {novo_saldo:.2f}")
-                if not API_KEY:
-                    st.warning("⚠️ Modo teste: saque apenas simulado.")
             else:
                 st.error("❌ Saldo insuficiente.")
 
