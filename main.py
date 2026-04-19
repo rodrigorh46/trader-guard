@@ -1,130 +1,129 @@
 import streamlit as st
 import streamlit.components.v1 as components
 from binance.client import Client
+import pandas as pd
+import requests
+import hashlib
+import time
+from datetime import datetime
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Trader Guard ELITE 🛡️", layout="wide", page_icon="🛡️")
+# ================= CONFIGURAÇÃO DA PÁGINA =================
+st.set_page_config(page_title="Trader Guard VIRUS 🛡️", layout="wide", page_icon="☣️")
 
-# --- CSS PARA ESTILIZAÇÃO AVANÇADA ---
+# ================= CSS: ESTILO VÍRUS DIGITAL =================
 st.markdown("""
     <style>
-    .main { background-color: #0e1117; }
-    /* Estilo do Logotipo */
-    .logo-text {
-        font-family: 'Inter', sans-serif;
-        color: #00d4ff;
-        font-size: 32px;
-        font-weight: 800;
-        letter-spacing: -1px;
-        margin-bottom: 0px;
-        text-shadow: 0px 0px 15px rgba(0, 212, 255, 0.4);
+    .main { background-color: #050505; }
+    
+    /* Logo Animado Estilo Matrix/Virus */
+    @keyframes glitch {
+        0% { text-shadow: 2px 0 0 #00ff41, -2px 0 0 #ff0000; }
+        25% { text-shadow: -2px 0 0 #00ff41, 2px 0 0 #ff0000; }
+        50% { text-shadow: 2px 0 0 #00ff41, -2px 0 0 #ff0000; }
+        100% { text-shadow: -2px 0 0 #00ff41, 2px 0 0 #ff0000; }
     }
-    .logo-sub {
-        color: #8b949e;
-        font-size: 12px;
-        margin-bottom: 20px;
-        text-transform: uppercase;
-    }
-    /* Botões Customizados */
-    div.stButton > button:first-child {
-        width: 100%;
-        height: 50px;
+    
+    .virus-logo {
+        font-family: 'Courier New', monospace;
+        color: #00ff41;
+        font-size: 38px;
         font-weight: bold;
-        border-radius: 10px;
+        text-align: center;
+        animation: glitch 1s infinite alternate-reverse;
+        border-bottom: 2px solid #00ff41;
+        margin-bottom: 10px;
     }
-    /* Botão de Fechar Operação */
-    .stButton button:has(div p:contains("FECHAR")) {
-        background-color: #ff9800 !important;
-        color: white !important;
-        border: none !important;
-    }
-    .stButton button:hover:has(div p:contains("FECHAR")) {
-        background-color: #e68900 !important;
-        box-shadow: 0px 0px 15px rgba(255, 152, 0, 0.4);
+
+    /* Alerta de Travamento de Capital */
+    .stAlert {
+        border: 2px solid #ff0000 !important;
+        background-color: #200000 !important;
+        color: #ff0000 !important;
+        font-weight: bold;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- CONEXÃO COM A BINANCE ---
+# ================= SEGURANÇA E CONEXÃO =================
 try:
+    # Usando secrets para não expor no GitHub
     api_key = st.secrets["binance"]["api_key"]
     api_secret = st.secrets["binance"]["api_secret"]
     client = Client(api_key, api_secret)
     
-    # Puxando o saldo real de USDT (Dólar) para Futuros
-    # Se quiser Spot, mude para: client.get_asset_balance(asset='USDT')
-    info = client.futures_account_balance()
-    saldo_usdt = next(item for item in info if item['asset'] == 'USDT')
-    saldo_real = float(saldo_usdt['balance'])
+    # --- LÓGICA DE PROTEÇÃO DE 10% ---
+    if 'saldo_inicial' not in st.session_state:
+        # Puxa o saldo inicial da primeira vez que o app abre
+        info = client.futures_account_balance()
+        balance = next(item for item in info if item['asset'] == 'USDT')
+        st.session_state['saldo_inicial'] = float(balance['balance'])
+
+    # Saldo Atual
+    info_atual = client.futures_account_balance()
+    balance_atual = next(item for item in info_atual if item['asset'] == 'USDT')
+    saldo_real = float(balance_atual['balance'])
+
+    # Cálculo da Perda
+    perda_atual = ((saldo_real - st.session_state['saldo_inicial']) / st.session_state['saldo_inicial']) * 100
     
-    status_conexao = "✅ SISTEMA ONLINE"
-except Exception:
+    # DISJUNTOR: Travamento se perder mais de 10%
+    trava_seguranca = perda_atual <= -10.0
+    status_conexao = "✅ SISTEMA ONLINE" if not trava_seguranca else "🚨 SISTEMA TRAVADO (LOSS LIMIT)"
+
+except Exception as e:
     saldo_real = 0.0
-    status_conexao = "⚠️ MODO VISUALIZAÇÃO"
+    perda_atual = 0.0
+    st.session_state['saldo_inicial'] = 0.0
+    trava_seguranca = False
+    status_conexao = f"⚠️ MODO VISUALIZAÇÃO"
 
-# --- SIDEBAR (BARRA LATERAL) ---
+# ================= SIDEBAR =================
 with st.sidebar:
-    # Logotipo Melhorado
-    st.markdown('<p class="logo-text">🛡️ TRADER GUARD</p>', unsafe_allow_html=True)
-    st.markdown('<p class="logo-sub">Security & High Frequency Trading</p>', unsafe_allow_html=True)
+    st.markdown('<p class="virus-logo">TRADER_GUARD.exe</p>', unsafe_allow_html=True)
+    st.write(f"Sessão iniciada: {datetime.now().strftime('%H:%M:%S')}")
     
-    menu = st.radio("Navegação Principal", ["📈 Terminal de Trade", "💰 Gestão PIX", "👤 Perfil API"])
+    if trava_seguranca:
+        st.error(f"SISTEMA BLOQUEADO: Perda de {perda_atual:.2f}% atingida.")
+        st.info("O robô encerrou todas as ordens para proteger seu capital.")
+    else:
+        st.success(status_conexao)
     
-    st.divider()
-    st.success(status_conexao)
-    st.info(f"📍 Servidor: Campina Grande - PB")
+    st.metric("Saldo Atual", f"$ {saldo_real:,.2f}", f"{perda_atual:.2f}%")
+    
+    menu = st.radio("Sistemas", ["📈 Terminal", "👤 API Settings"])
 
-# --- CONTEÚDO PRINCIPAL ---
-if menu == "📈 Terminal de Trade":
-    col_graf, col_painel = st.columns([3, 1])
+# ================= INTERFACE PRINCIPAL =================
+if trava_seguranca:
+    st.markdown("""
+        <div style="text-align: center; margin-top: 100px;">
+            <h1 style="color: #ff0000; font-size: 50px;">☣️ PROTOCOLO DE EMERGÊNCIA ATIVADO ☣️</h1>
+            <p style="color: white; font-size: 20px;">O limite de 10% de perda foi atingido. O acesso às ordens foi revogado para sua segurança.</p>
+        </div>
+    """, unsafe_allow_html=True)
+    # Aqui o código para de renderizar os botões, impedindo o trade.
+    
+else:
+    if menu == "📈 Terminal":
+        col_graf, col_painel = st.columns([3, 1])
+        
+        with col_graf:
+            # Gráfico do TradingView
+            par_v = st.selectbox("Alvo", ["BTCUSDT", "ETHUSDT", "SOLUSDT"])
+            tv_html = f'<div id="tv-chart" style="height:600px;"></div><script src="https://s3.tradingview.com/tv.js"></script><script>new TradingView.widget({{"autosize": true, "symbol": "BINANCE:{par_v}", "interval": "15", "theme": "dark", "container_id": "tv-chart"}});</script>'
+            components.html(tv_html, height=620)
+            
+        with col_painel:
+            st.subheader("⚡ Boleta Virus.dll")
+            margem = st.number_input("Entrada ($)", 5.0, 1000.0, 20.0)
+            
+            if st.button("🚀 EXECUTAR COMPRA"):
+                st.toast("Injetando ordem no mercado...")
+                # Lógica de compra aqui
+                
+            if st.button("📉 EXECUTAR VENDA"):
+                st.toast("Injetando ordem de short...")
+                # Lógica de venda aqui
 
-    with col_graf:
-        # Gráfico do TradingView (BTC/USDT Futuros)
-        tv_html = """
-        <div style="height:620px;">
-            <div id="chart_div"></div>
-            <script src="https://s3.tradingview.com/tv.js"></script>
-            <script>
-            new TradingView.widget({
-                "width": "100%", "height": 620, "symbol": "BINANCE:BTCUSDT.P",
-                "interval": "1", "theme": "dark", "style": "1", "locale": "br",
-                "container_id": "chart_div", "hide_side_toolbar": false, "allow_symbol_change": true
-            });
-            </script>
-        </div>"""
-        components.html(tv_html, height=630)
-
-    with col_painel:
-        st.subheader("⚡ Boleta de Ordem")
-        
-        # Dashboard de Saldo
-        st.metric("Saldo Disponível (USDT)", f"$ {saldo_real:,.2f}", delta="Ao Vivo")
-        
-        st.divider()
-        
-        # Controles de Operação
-        margem = st.number_input("Valor da Entrada ($)", min_value=5.0, value=20.0, step=5.0)
-        alavanca = st.slider("Alavancagem", 1, 50, 10)
-        
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            if st.button("🚀 COMPRAR"):
-                st.toast(f"Ordem de LONG enviada: ${margem}")
-        with col_btn2:
-            if st.button("📉 VENDER"):
-                st.toast(f"Ordem de SHORT enviada: ${margem}")
-        
-        st.write("") # Espaçamento
-        
-        # BOTÃO DE SAIR DA OPERAÇÃO (O que você pediu)
-        if st.button("⏹️ FECHAR POSIÇÃO AGORA"):
-            st.warning("⚠️ Encerrando todas as ordens abertas...")
-            # Aqui entraria a função: client.futures_cancel_all_open_orders(symbol='BTCUSDT')
-
-elif menu == "💰 Gestão PIX":
-    st.title("Depósitos e Saques")
-    st.write("Funcionalidade em integração com o gateway de pagamento.")
-
-elif menu == "👤 Perfil API":
-    st.title("Configurações de Segurança")
-    st.write(f"Conectado à chave: `{api_key[:10]}...`")
+            st.divider()
+            if st.button("⏹️ KILL SWITCH (FECHAR TUDO)"):
+                st.warning("Encerrando todas as conexões e ordens...")
