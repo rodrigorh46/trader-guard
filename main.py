@@ -16,6 +16,8 @@ conn.commit()
 
 # --- FUNÇÕES ---
 def cadastrar_usuario(nome, email, senha):
+    if not nome or not email or not senha:
+        return False
     senha_hash = bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt())
     try:
         c.execute("INSERT INTO usuarios (nome, email, senha_hash) VALUES (?, ?, ?)",
@@ -74,10 +76,10 @@ if "usuario" not in st.session_state:
         senha = st.text_input("Senha", type="password")
         if st.button("Cadastrar"):
             if cadastrar_usuario(nome, email, senha):
-                st.success("Cadastro realizado com sucesso!")
+                st.success("Cadastro realizado com sucesso! Faça login.")
             else:
-                st.error("Email já cadastrado.")
-    else:  # Login
+                st.error("Erro: verifique os campos ou email já cadastrado.")
+    else:
         email = st.text_input("Email")
         senha = st.text_input("Senha", type="password")
         if st.button("Login"):
